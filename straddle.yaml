@@ -1,0 +1,63 @@
+# hw-linux — the board straddle for a station that is a Linux process.
+#
+# A "board" whose hardware is the host: the firmware links against the ESP-IDF
+# linux target and runs as an ordinary process, one process per station. It
+# supplies what a chip would have supplied and the host target does not —
+# a GPIO shim, an esp_timer implementation, an identity — plus the station's
+# own directory and loopback address, read from the environment:
+#
+#   SPANGAP_NODE_ID     a small integer, the station's identity
+#   SPANGAP_NODE_DIR    its state directory (created; the process chdir()s in)
+#   SPANGAP_BIND_ADDR   its loopback address, 127.0.0.<id>
+#   SPANGAP_ETHER       host:port of the virtual ether
+#   SPANGAP_FIXED_DIR   the build's data_merged, linked in as ./fixed
+#
+# Build it the way any board is built:
+#   spangap build reticulous/reticulous --with spangap/hw-linux
+schema_version: 1
+name: spangap/hw-linux
+prefix: hwlinux
+firmware: esp-idf
+version: 0.0.0
+platforms: [idf]
+# The IDF target. Everything else in the build inherits it.
+target: linux
+# Board bring-up as a registered Service. HwLinuxBoard::onStart runs before
+# spangapInit(): it makes the station directory, links /fixed in and chdir()s,
+# so every relative filesystem root below resolves.
+services:
+  - { class: HwLinuxBoard, header: hwlinux.h }
+kconfig:
+  # There is no flash chip; esp_partition maps a file sized from the built
+  # partition table, and the table is generated from this the usual way.
+  - CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+  - CONFIG_SPANGAP_MAX_FIRMWARE_KB=6144
+  # Host stacks are pthread stacks, and the port's floor is 16 KB. The main
+  # task carries the whole synchronous boot, the timer task runs callbacks on
+  # its own stack.
+  - CONFIG_ESP_MAIN_TASK_STACK_SIZE=65536
+  - CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=4096
+  # lwIP is not built for the host: the station's sockets are the host's, and
+  # with lwIP off IDF interposes select() for every FreeRTOS task.
+  - CONFIG_LWIP_ENABLE=n
+  - '# CONFIG_SPIRAM is not set'
+  - '# CONFIG_SPANGAP_USB_CDC is not set'
+  - '# CONFIG_NVS_ENCRYPTION is not set'
+  # The host heap wraps libc and attributes nothing to a task, so the
+  # per-task accounting has no data behind it and no implementation.
+  - '# CONFIG_HEAP_TASK_TRACKING is not set'
+  # The radio's pins are indices into the GPIO shim's table and nothing else.
+  # -1 would read as RadioLib's "not connected".
+  - when: reticulous/iface-lora
+    set:
+      - CONFIG_LORA_COUNT=1
+      - CONFIG_LORA_SPI_HOST=2
+      - CONFIG_LORA_SCK_PIN=0
+      - CONFIG_LORA_MOSI_PIN=1
+      - CONFIG_LORA_MISO_PIN=2
+      - CONFIG_LORA0_CS_PIN=3
+      - CONFIG_LORA0_DIO1_PIN=4
+      - CONFIG_LORA0_BUSY_PIN=5
+      - CONFIG_LORA0_RST_PIN=6
+      - CONFIG_LORA0_RADIO_SX1262=y
+      - CONFIG_LORA0_TCXO_MV=0

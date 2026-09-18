@@ -1,0 +1,24 @@
+# OS / editor
+*.bak
+.DS_Store
+._*
+.claude/
+
+# Auto-generated artifacts
+__pycache__/
+*.pyc
+*.pyo
+
+# spangap CLI stages required straddles here as symlinks pre-build (picked up
+# via EXTRA_COMPONENT_DIRS). Always regenerated; never edit by hand.
+staging/
+esp-idf/managed_components/
+esp-idf/dependencies.lock
+
+# sdkconfig.defaults is LOCAL SCRATCH only — what a straddle DISTRIBUTES it
+# declares in straddle.yaml `kconfig:`, which is collected for every staged
+# straddle. In a non-buildable straddle a defaults file is never read at all.
+esp-idf/sdkconfig
+esp-idf/sdkconfig.old
+esp-idf/sdkconfig.defaults
+esp-idf/sdkconfig.defaults.*

@@ -1,0 +1,8 @@
+description: "hw-linux: the board straddle for a station that runs as a Linux process — GPIO shim, esp_timer, station identity and directory."
+version: "0.1.0"
+license: "Apache-2.0"
+targets:
+  - linux
+dependencies:
+  idf:
+    version: ">=5.5"
