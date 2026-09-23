@@ -27,6 +27,14 @@ target: linux
 # so every relative filesystem root below resolves.
 services:
   - { class: HwLinuxBoard, header: hwlinux.h }
+# The one thing this board pulls in: the LoRa interface, because a station's
+# radio is the SX1262 model in iface-lora's src/host/ and the virtual ether is
+# the only thing a station can reach. The radio rides on the board here exactly
+# as a soldered modem does on a real one, and LoRaMon comes with it.
+additional_installs:
+  # Gated on rns, because it is a Reticulum interface: a buildable that is not a
+  # Reticulum node must not inherit the mesh from the board's modem.
+  - { install: reticulous/iface-lora, when: reticulous/rns }
 kconfig:
   # There is no flash chip; esp_partition maps a file sized from the built
   # partition table, and the table is generated from this the usual way.
