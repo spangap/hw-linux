@@ -36,7 +36,7 @@ Env& env()
     const char* id = getenv("SPANGAP_NODE_ID");
     if (id && *id) {
         long v = strtol(id, nullptr, 10);
-        if (v > 0 && v < 255) e.nodeId = (int)v;
+        if (v > 0 && v < 65536) e.nodeId = (int)v;   /* two MAC bytes' worth */
     }
     const char* dir = getenv("SPANGAP_NODE_DIR");
     if (dir && *dir) snprintf(e.nodeDir, sizeof e.nodeDir, "%s", dir);
@@ -71,16 +71,17 @@ extern "C" const char* hwLinuxBindAddr(void) { return env().bindAddr; }
 extern "C" const char* hwLinuxEtherAddr(void) { return env().ether; }
 
 /* The identity the platform reads everywhere it wants a device address: a
- * locally administered unicast MAC whose last byte is the node id. */
+ * locally administered unicast MAC whose last two bytes are the node id. */
 extern "C" esp_err_t esp_efuse_mac_get_default(uint8_t* mac)
 {
     if (!mac) return ESP_ERR_INVALID_ARG;
+    int id = env().nodeId;
     mac[0] = 0x02;              /* locally administered, unicast */
     mac[1] = 0x73;              /* 's' */
     mac[2] = 0x69;              /* 'i' */
     mac[3] = 0x6d;              /* 'm' */
-    mac[4] = 0x00;
-    mac[5] = (uint8_t)env().nodeId;
+    mac[4] = (uint8_t)(id >> 8);
+    mac[5] = (uint8_t)(id & 0xff);
     return ESP_OK;
 }
 

@@ -57,7 +57,7 @@ Read once, at the first call:
 
 | Variable | What it is |
 |---|---|
-| `SPANGAP_NODE_ID` | a small integer. The last byte of the station's MAC, so every station on one host is a distinct device |
+| `SPANGAP_NODE_ID` | an integer from 1 to 65535. The last two bytes of the station's MAC, so every station on one host is a distinct device |
 | `SPANGAP_NODE_DIR` | the station's directory. Created, with `state/` under it; the process `chdir()`s there, which is what makes the platform's filesystem roots resolve inside it |
 | `SPANGAP_BIND_ADDR` | the address every listener binds, `127.0.0.1<id>` by default, so stations keep the canonical port numbers instead of offsetting them |
 | `SPANGAP_ETHER` | `host:port` of the virtual ether. Absent: the radio transmits into nothing |
