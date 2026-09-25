@@ -46,8 +46,11 @@ kconfig:
   - CONFIG_ESP_MAIN_TASK_STACK_SIZE=65536
   - CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=4096
   # lwIP is not built for the host: the station's sockets are the host's, and
-  # with lwIP off IDF interposes select() for every FreeRTOS task.
+  # select() is interposed for every FreeRTOS task (src/fdwait.cpp).
   - CONFIG_LWIP_ENABLE=n
+  # select() blocks its task on notification index 1 until a descriptor is
+  # ready (src/fdwait.cpp), so index 0 stays the task's own.
+  - CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES=2
   - '# CONFIG_SPIRAM is not set'
   - '# CONFIG_SPANGAP_USB_CDC is not set'
   - '# CONFIG_NVS_ENCRYPTION is not set'

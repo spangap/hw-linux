@@ -21,11 +21,56 @@
  */
 #pragma once
 
+#include <sys/select.h>
+
+#include "freertos/FreeRTOS.h"
 #include "service.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * select() for a task that also waits on its own notifications: blocks until a
+ * descriptor in the sets is ready, `ticks` pass, or the calling task is
+ * notified on index 0, and returns what select() would — 0 with the sets
+ * cleared for the last two. The notification's value is not taken, so the
+ * task's own ulTaskNotifyTake still sees it.
+ *
+ * Plain select() blocks the calling task the same way (it is wrapped at link
+ * time), without the notification. See src/fdwait.cpp.
+ */
+int hwLinuxWait(int nfds, fd_set* rfds, fd_set* wfds, fd_set* efds, TickType_t ticks);
+
+/*
+ * The station's clock, when a component in the image keeps it. The board
+ * calls these if they are defined — it declares them weak — and runs on the
+ * host's clocks if they are not:
+ *
+ *   hwLinuxClockStart()     from the board's onStart, before anything waits;
+ *                           nonzero when the clock is not the host's, and the
+ *                           tick is then stepped from it (src/tick.cpp)
+ *   hwLinuxClockUs()        esp_timer_get_time(): µs on the station's clock
+ *   hwLinuxClockWake(us)    esp_timer's earliest expiry moved (INT64_MAX: none)
+ *   hwLinuxClockTickAt(us)  the next tick a task waits for (INT64_MAX: none)
+ *   hwLinuxClockIdle()      every task is blocked until the earlier of those
+ *                           two, or an interrupt
+ *
+ * and the board offers the clock these:
+ *
+ *   hwLinuxClockDue()       the clock reached the expiry it was last told
+ *   hwLinuxClockMoved()     the clock moved: the tick count is brought up to
+ *                           it. From a task, never from inside a critical
+ *                           section, before anything due at the new instant
+ *                           runs
+ */
+void hwLinuxClockDue(void);
+void hwLinuxClockMoved(void);
+int64_t hwLinuxClockUs(void);
+void hwLinuxClockWake(int64_t us);
+void hwLinuxClockTickAt(int64_t us);
+int hwLinuxClockStart(void);
+void hwLinuxClockIdle(void);
 
 /** The station's identity. 1 when unset. */
 int hwLinuxNodeId(void);

@@ -44,17 +44,25 @@ static struct esp_timer* s_head;   /* active timers, earliest first */
 #define TIMER_TASK_STACK  (32 * 1024)
 #define TIMER_TASK_PRIO   22
 
+/* The station's clock, when a component in the image keeps it (hwlinux.h). */
+extern int64_t hwLinuxClockUs(void) __attribute__((weak));
+extern void    hwLinuxClockWake(int64_t us) __attribute__((weak));
+
 int64_t esp_timer_get_time(void)
 {
     static int64_t origin;
     struct timespec ts;
     int64_t now;
 
+    if (hwLinuxClockUs) return hwLinuxClockUs();
     clock_gettime(CLOCK_MONOTONIC, &ts);
     now = (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
     if (origin == 0) origin = now;
     return now - origin;
 }
+
+/* With the lock held: the clock learns the earliest expiry. */
+static void tell_clock(void);
 
 static void timer_task(void* unused);
 
@@ -95,6 +103,16 @@ static void wake_task(void)
     if (s_task) xTaskNotifyGive(s_task);
 }
 
+static void tell_clock(void)
+{
+    if (hwLinuxClockWake) hwLinuxClockWake(s_head ? (int64_t)s_head->next : INT64_MAX);
+}
+
+void hwLinuxClockDue(void)
+{
+    wake_task();
+}
+
 static void arm(struct esp_timer* t, uint64_t timeout_us, uint64_t period)
 {
     lock();
@@ -103,6 +121,7 @@ static void arm(struct esp_timer* t, uint64_t timeout_us, uint64_t period)
     t->next   = (uint64_t)esp_timer_get_time() + timeout_us;
     t->active = true;
     list_insert(t);
+    tell_clock();
     unlock();
     wake_task();
 }
@@ -130,6 +149,7 @@ static void timer_task(void* unused)
             }
             cb  = fire->cb;
             arg = fire->arg;
+            tell_clock();
         } else if (s_head) {
             due = s_head->next;
         }
@@ -199,7 +219,7 @@ esp_err_t esp_timer_stop(esp_timer_handle_t timer)
 {
     if (!timer) return ESP_ERR_INVALID_ARG;
     lock();
-    if (timer->active) { list_remove(timer); timer->active = false; }
+    if (timer->active) { list_remove(timer); timer->active = false; tell_clock(); }
     unlock();
     wake_task();
     return ESP_OK;

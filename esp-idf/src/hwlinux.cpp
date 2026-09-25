@@ -8,6 +8,7 @@
 #include "hwlinux.h"
 
 #include <cerrno>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -15,8 +16,43 @@
 #include <unistd.h>
 
 #include "esp_err.h"
+#include "esp_log.h"
 
 namespace {
+
+/* One formatted line onto a descriptor with write(2). stdio takes a lock, and
+ * on this port a signal can switch tasks while a task holds it: the next task
+ * to print would wait on it forever. */
+void say(int fd, const char* fmt, ...)
+{
+    char line[640];
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(line, sizeof line, fmt, ap);
+    va_end(ap);
+    if (n < 0) return;
+    if (n >= (int)sizeof line) n = (int)sizeof line - 1;
+    ssize_t w = write(fd, line, (size_t)n);
+    (void)w;
+}
+
+/* ESP-IDF's log until the platform's own logger takes it over: the same
+ * formatting, put on stdout with write(2). */
+int logToStdout(const char* fmt, va_list ap)
+{
+    char line[640];
+    int n = vsnprintf(line, sizeof line, fmt, ap);
+    if (n < 0) return n;
+    int len = n >= (int)sizeof line ? (int)sizeof line - 1 : n;
+    ssize_t w = write(STDOUT_FILENO, line, (size_t)len);
+    (void)w;
+    return n;
+}
+
+__attribute__((constructor)) void earlyLog()
+{
+    esp_log_set_vprintf(logToStdout);
+}
 
 struct Env {
     int  nodeId = 1;
@@ -56,7 +92,7 @@ Env& env()
 
 void fail(const char* what, const char* path)
 {
-    fprintf(stderr, "hw-linux: %s %s: %s\n", what, path, strerror(errno));
+    say(STDERR_FILENO, "hw-linux: %s %s: %s\n", what, path, strerror(errno));
 }
 
 void ensureDir(const char* path)
@@ -65,6 +101,9 @@ void ensureDir(const char* path)
 }
 
 }  // namespace
+
+/* The station's clock comes up, and the tick with it (src/tick.cpp). */
+void hwLinuxTickStart(void);
 
 extern "C" int hwLinuxNodeId(void) { return env().nodeId; }
 extern "C" const char* hwLinuxBindAddr(void) { return env().bindAddr; }
@@ -106,7 +145,8 @@ void HwLinuxBoard::onStart()
 
     char cwd[512] = {};
     if (!getcwd(cwd, sizeof cwd)) cwd[0] = '\0';
-    fprintf(stderr, "hw-linux: node %d at %s, bind %s, ether %s\n",
-            e.nodeId, cwd, e.bindAddr, e.ether[0] ? e.ether : "(none)");
-    fflush(stderr);
+    say(STDERR_FILENO, "hw-linux: node %d at %s, bind %s, ether %s\n",
+        e.nodeId, cwd, e.bindAddr, e.ether[0] ? e.ether : "(none)");
+
+    hwLinuxTickStart();
 }
