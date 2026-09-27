@@ -57,6 +57,7 @@ kconfig:
   # The host heap wraps libc and attributes nothing to a task, so the
   # per-task accounting has no data behind it and no implementation.
   - '# CONFIG_HEAP_TASK_TRACKING is not set'
+  - CONFIG_COMPILER_OPTIMIZATION_PERF=y
   # The radio's pins are indices into the GPIO shim's table and nothing else.
   # -1 would read as RadioLib's "not connected".
   - when: reticulous/iface-lora
