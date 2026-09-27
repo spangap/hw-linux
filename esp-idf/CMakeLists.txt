@@ -42,3 +42,18 @@ target_link_libraries(${COMPONENT_LIB} INTERFACE
     "-Wl,--wrap=esp_vApplicationIdleHook"
     "-Wl,-u,__wrap_esp_vApplicationIdleHook"
     "-Wl,-u,vPortSuppressTicksAndSleep")
+
+# nvs_flash on this target hands --coverage to everything that links it. Taken
+# back out once every component has been processed, whatever order they ran in.
+function(hwlinux_strip_coverage)
+    idf_component_get_property(lib nvs_flash COMPONENT_LIB)
+    foreach(prop COMPILE_OPTIONS INTERFACE_COMPILE_OPTIONS
+                 LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+        get_target_property(values ${lib} ${prop})
+        if(values)
+            list(REMOVE_ITEM values "--coverage")
+            set_target_properties(${lib} PROPERTIES ${prop} "${values}")
+        endif()
+    endforeach()
+endfunction()
+cmake_language(DEFER DIRECTORY "${CMAKE_SOURCE_DIR}" CALL hwlinux_strip_coverage)
