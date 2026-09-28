@@ -19,6 +19,7 @@ idf_component_register(
         ${SPANGAP_REQUIRES}
         esp_event
         freertos
+        json
         log
 )
 # Every select() in the image is src/fdwait.cpp's, which blocks the calling

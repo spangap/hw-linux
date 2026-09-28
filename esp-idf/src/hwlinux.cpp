@@ -8,6 +8,7 @@
 #include "hwlinux.h"
 
 #include <cerrno>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -15,6 +16,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "cJSON.h"
 #include "esp_err.h"
 #include "esp_log.h"
 
@@ -90,6 +92,52 @@ Env& env()
     return e;
 }
 
+/* SPANGAP_BOARD, read once: one flat JSON object, of which the front end's
+ * members are taken. A member that is absent or the wrong type reads as
+ * unsaid; a document that does not parse is said once on stderr and read as
+ * no board at all. */
+struct FrontEnd {
+    bool told = false;
+    char part[32] = "";
+    char txCal[512] = "";
+    int  gainDb = 0;
+    int  rxGainDb = 0;
+    int  maxDbm = 0;
+};
+
+FrontEnd& frontEnd()
+{
+    static FrontEnd f;
+    static bool loaded = false;
+    if (loaded) return f;
+    loaded = true;
+
+    const char* text = getenv("SPANGAP_BOARD");
+    if (!text || !*text) return f;
+    cJSON* doc = cJSON_Parse(text);
+    if (!cJSON_IsObject(doc)) {
+        say(STDERR_FILENO, "hw-linux: SPANGAP_BOARD is not a JSON object; no board taken\n");
+        cJSON_Delete(doc);
+        return f;
+    }
+    auto str = [&](const char* key, char* out, size_t cap) {
+        const cJSON* v = cJSON_GetObjectItemCaseSensitive(doc, key);
+        if (cJSON_IsString(v)) snprintf(out, cap, "%s", v->valuestring);
+    };
+    auto num = [&](const char* key) -> double {
+        const cJSON* v = cJSON_GetObjectItemCaseSensitive(doc, key);
+        return cJSON_IsNumber(v) ? v->valuedouble : 0.0;
+    };
+    f.told = true;
+    str("fem_part", f.part, sizeof f.part);
+    str("fem_tx_cal", f.txCal, sizeof f.txCal);
+    f.gainDb = (int)num("fem_gain_db");
+    f.rxGainDb = (int)num("fem_rx_gain_db");
+    f.maxDbm = (int)std::floor(num("max_dbm"));   /* a ceiling: never rounded up */
+    cJSON_Delete(doc);
+    return f;
+}
+
 void fail(const char* what, const char* path)
 {
     say(STDERR_FILENO, "hw-linux: %s %s: %s\n", what, path, strerror(errno));
@@ -108,6 +156,19 @@ void hwLinuxTickStart(void);
 extern "C" int hwLinuxNodeId(void) { return env().nodeId; }
 extern "C" const char* hwLinuxBindAddr(void) { return env().bindAddr; }
 extern "C" const char* hwLinuxEtherAddr(void) { return env().ether; }
+
+extern "C" bool hwLinuxFrontEnd(const char** part, const char** txCal,
+                                int* gainDb, int* rxGainDb, int* maxDbm)
+{
+    const FrontEnd& f = frontEnd();
+    if (!f.told) return false;
+    *part = f.part;
+    *txCal = f.txCal;
+    *gainDb = f.gainDb;
+    *rxGainDb = f.rxGainDb;
+    *maxDbm = f.maxDbm;
+    return true;
+}
 
 /* The identity the platform reads everywhere it wants a device address: a
  * locally administered unicast MAC whose last two bytes are the node id. */

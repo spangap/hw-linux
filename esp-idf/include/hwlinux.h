@@ -18,6 +18,12 @@
  *   SPANGAP_ETHER       host:port of the virtual ether.
  *   SPANGAP_FIXED_DIR   the build's merged read-only data tree, linked in as
  *                       ./fixed.
+ *   SPANGAP_BOARD       the board the station is, one flat JSON object:
+ *                       max_dbm (the most it may put on the antenna
+ *                       connector) and, with a front end, fem_part,
+ *                       fem_tx_cal (its transmit curve, chip register to
+ *                       connector dBm), fem_gain_db and fem_rx_gain_db.
+ *                       Absent, the build's own Kconfig describes the radio.
  */
 #pragma once
 
@@ -80,6 +86,16 @@ const char* hwLinuxBindAddr(void);
 
 /** `host:port` of the virtual ether. Empty when no ether was named. */
 const char* hwLinuxEtherAddr(void);
+
+/**
+ * The radio's front end from SPANGAP_BOARD, for a LoRa interface to take in
+ * place of its Kconfig: the part ("" = none), its TX calibration ("" = none),
+ * its flat TX gain and its receive gain in dB, and the ceiling at the
+ * connector in whole dBm (0 = unsaid). False, and nothing written, when the
+ * station was told no board.
+ */
+bool hwLinuxFrontEnd(const char** part, const char** txCal,
+                     int* gainDb, int* rxGainDb, int* maxDbm);
 
 #ifdef __cplusplus
 }

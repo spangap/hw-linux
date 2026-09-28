@@ -11,6 +11,8 @@
 #   SPANGAP_BIND_ADDR   its loopback address, 127.0.0.<id>
 #   SPANGAP_ETHER       host:port of the virtual ether
 #   SPANGAP_FIXED_DIR   the build's data_merged, linked in as ./fixed
+#   SPANGAP_BOARD       the board it is (JSON): its radio's front end and the
+#                       most it may put on the antenna connector
 #
 # Build it the way any board is built:
 #   spangap build reticulous/reticulous --with spangap/hw-linux
@@ -58,6 +60,10 @@ kconfig:
   # per-task accounting has no data behind it and no implementation.
   - '# CONFIG_HEAP_TASK_TRACKING is not set'
   - CONFIG_COMPILER_OPTIMIZATION_PERF=y
+  # A station is reached by nobody but whoever runs the host, so it has no
+  # login: nothing waits for an admin password and the web UI opens straight
+  # onto the device.
+  - CONFIG_SPANGAP_AUTH_OPEN=y
   # The radio's pins are indices into the GPIO shim's table and nothing else.
   # -1 would read as RadioLib's "not connected".
   - when: reticulous/iface-lora

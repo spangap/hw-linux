@@ -37,7 +37,7 @@ A chip supplies things the host target does not, and each is here:
 
 | | |
 |---|---|
-| `esp-idf/src/hwlinux.cpp` | the station's identity and directory, from the environment below, and `esp_efuse_mac_get_default` over the node id; ESP-IDF's log goes to stdout with `write(2)` from before `main()` until the platform's logger takes it, because stdio's lock can be held by a task a signal switched out |
+| `esp-idf/src/hwlinux.cpp` | the station's identity, directory and board, from the environment below, and `esp_efuse_mac_get_default` over the node id; ESP-IDF's log goes to stdout with `write(2)` from before `main()` until the platform's logger takes it, because stdio's lock can be held by a task a signal switched out |
 | `esp-idf/src/fdwait.cpp` | an interrupt controller for file descriptors: `select()` and `hwLinuxWait()` block a task until a descriptor is ready (below) |
 | `esp-idf/src/tick.cpp` | the FreeRTOS tick, suppressed while every task is blocked: tickless idle, on the host's clock or on one another component keeps (below) |
 | `esp-idf/components/driver/` | the GPIO shim — a pin table whose one rule is that a level-triggered pin fires the instant its interrupt is enabled while the line is asserted. Also the two SPI type names the firmware's declarations mention |
@@ -52,7 +52,9 @@ directory on `EXTRA_COMPONENT_DIRS`, later in the search order than IDF's own.
 the modem drives its interrupt line through; the chip model itself comes in
 with the interface that drives it, [`iface-lora`](../iface-lora/README.md). A
 feature straddle may not depend on a board straddle, so the model cannot come
-from here.
+from here. The radio's front end is the station's board, not the build's:
+`hwLinuxFrontEnd()` hands the interface `SPANGAP_BOARD`'s figures, and the
+interface declares it weak so a build without this board keeps its Kconfig.
 
 ## Waiting on a descriptor
 
@@ -199,10 +201,12 @@ Read once, at the first call:
 | `SPANGAP_BIND_ADDR` | the address every listener binds, `127.0.0.1<id>` by default, so stations keep the canonical port numbers instead of offsetting them |
 | `SPANGAP_ETHER` | `host:port` of the virtual ether. Absent: the radio transmits into nothing |
 | `SPANGAP_FIXED_DIR` | the build's `data_merged`, linked into the station directory as `fixed` |
+| `SPANGAP_BOARD` | the board the station is, one flat JSON object: `max_dbm`, the most it may put on the antenna connector, and with a front end `fem_part`, `fem_tx_cal` (its transmit curve, chip register to connector dBm), `fem_gain_db` and `fem_rx_gain_db`. Handed to a radio interface through `hwLinuxFrontEnd()` in place of the build's Kconfig. Absent, the Kconfig stands |
 
 A station's ports are its own: the web UI on 80 and 443, the TCP CLI on 8081
 once `s.net.cli_port` opens it (closed by default, as on a chip), and whatever
-else the build registers. Its console is its stdin and stdout, and carries
+else the build registers. It has no login (`CONFIG_SPANGAP_AUTH_OPEN`): nothing
+waits for an admin password, and the web UI opens straight onto the device. Its console is its stdin and stdout, and carries
 framed RPC exactly as a board's USB console does.
 
 ## Building
