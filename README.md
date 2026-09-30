@@ -42,6 +42,7 @@ A chip supplies things the host target does not, and each is here:
 | `esp-idf/src/tick.cpp` | the FreeRTOS tick, suppressed while every task is blocked: tickless idle, on the host's clock or on one another component keeps (below) |
 | `esp-idf/components/driver/` | the GPIO shim — a pin table whose one rule is that a level-triggered pin fires the instant its interrupt is enabled while the line is asserted. Also the two SPI type names the firmware's declarations mention |
 | `esp-idf/components/esp_timer/` | esp_timer over one task, on `CLOCK_MONOTONIC` or on a clock another component keeps (below); ESP-IDF's own registers headers only on this target |
+| `esp-idf/components/esp_driver_spi/` | the name and nothing else: ESP-IDF's own peripheral driver registers nothing here, and a component that lists it in `REQUIRES` (RadioLib does) cannot be registered while it is missing, whether or not anything calls into it |
 | `esp-idf/src/detect.cpp` | the board's self-assertion, which is unconditional — there is nothing to probe |
 
 Both sub-components take the name of an ESP-IDF component and override it,
