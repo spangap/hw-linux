@@ -219,5 +219,7 @@ spangap build <project> --with spangap/hw-linux -x <each straddle that does not>
 ```
 
 The result is `esp-idf/build.linux/<project>.elf` in the buildable, with its
-`/fixed` tree in `esp-idf/build.linux/data_merged/`. Nothing launches it: the
+`/fixed` tree in `esp-idf/build.linux/data_merged/`. `--arch x86_64` (or
+`aarch64`) builds for the architecture this machine is not, cross-compiled into
+`esp-idf/build.linux-<arch>/`. Nothing launches it: the
 program that runs stations sets the environment above and starts the ELF.
